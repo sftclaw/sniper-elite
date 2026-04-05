@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phantom Sniper 🎯</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; cursor: none; font-family: 'Courier New', monospace; }
+        #scope {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            background: radial-gradient(circle at center, transparent 150px, rgba(0,0,0,0.95) 152px);
+            display: none; z-index: 100;
+        }
+        #scope::before, #scope::after {
+            content: ''; position: absolute; background: rgba(0,0,0,0.8);
+        }
+        #scope::before { top: 50%; left: 0; width: 100%; height: 1px; }
+        #scope::after { left: 50%; top: 0; height: 100%; width: 1px; }
+        
+        #hud {
+            position: absolute; top: 20px; left: 20px; color: #22c55e; font-size: 1.2rem;
+            text-shadow: 0 0 5px #22c55e; pointer-events: none; z-index: 101;
+        }
+        #instructions {
+            position: absolute; bottom: 20px; width: 100%; text-align: center; color: rgba(255,255,255,0.5);
+            pointer-events: none; font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="scope"></div>
+    <div id="hud">
+        TARGETS: <span id="score">0</span>/5<br>
+        WIND: <span id="wind">0</span> MPH
+    </div>
+    <div id="instructions">HOVER TO AIM • CLICK TO SHOOT</div>
+
+    <script>
+        let isScoped = false;
+        document.addEventListener('mousemove', (e) => {
+            if(isScoped) return;
+            // Simple scope logic without click for smoother testing
+            // In a real game, right click would toggle this
+        });
+
+        class SniperGame extends Phaser.Scene {
+            constructor() { super('SniperGame'); }
+
+            create() {
+                this.score = 0;
+                this.targets = [];
+                this.bullets = 5;
+                this.wind = Math.floor(Math.random() * 20) - 10;
+                
+                this.createCityscape();
+                this.setupInput();
+                this.spawnTargets();
+                
+                document.getElementById('wind').innerText = Math.abs(this.wind);
+                document.getElementById('scope').style.display = 'block';
+                document.body.style.cursor = 'none';
+            }
+
+            createCityscape() {
+                // Background Sky
+                this.add.rectangle(400, 300, 800, 600, 0x1e1b4b);
+                
+                // Buildings
+                for(let i=0; i<15; i++) {
+                    const h = 100 + Math.random() * 200;
+                    const w = 40 + Math.random() * 60;
+                    const x = i * 60;
+                    const y = 600;
+                    
+                    const b = this.add.rectangle(x, y - h/2, w, h, 0x0f172a);
+                    
+                    // Windows
+                    for(let wy = y - h + 10; wy < y - 10; wy += 20) {
+                        for(let wx = x - w/2 + 5; wx < x + w/2; wx += 15) {
+                            if(Math.random() > 0.3) {
+                                this.add.rectangle(wx, wy, 8, 12, 0xfacc15, 0.5);
+                            }
+                        }
+                    }
+                }
+            }
+
+            spawnTargets() {
+                for(let i=0; i<5; i++) {
+                    const x = 100 + Math.random() * 600;
+                    const y = 350 + Math.random() * 100;
+                    
+                    // Target (A red silhouette)
+                    const target = this.add.container(x, y);
+                    const body = this.add.rectangle(0, 10, 20, 40, 0xef4444);
+                    const head = this.add.circle(0, -15, 10, 0xef4444);
+                    target.add([body, head]);
+                    
+                    // Movement
+                    this.tweens.add({
+                        targets: target, x: x + 100, duration: 2000 + Math.random() * 2000,
+                        yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+                    });
+                    
+                    target.setData('active', true);
+                    target.setInteractive({ hitArea: new Phaser.Geom.Rectangle(-15, -25, 30, 50), hitAreaCallback: Phaser.Geom.Rectangle.Contains });
+                    target.on('pointerdown', () => this.hitTarget(target));
+                    this.targets.push(target);
+                }
+            }
+
+            hitTarget(target) {
+                if(!target.getData('active')) return;
+                
+                // Hit effect
+                this.cameras.main.shake(100, 0.01);
+                const flash = this.add.circle(target.x, target.y, 50, 0xffffff);
+                this.tweens.add({ targets: flash, alpha: 0, scale: 2, duration: 200, onComplete: () => flash.destroy() });
+                
+                target.setData('active', false);
+                target.setAlpha(0.3);
+                this.score++;
+                document.getElementById('score').innerText = this.score;
+
+                if(this.score === 5) {
+                    this.add.text(400, 300, 'MISSION COMPLETE', { fontSize: '40px', color: '#22c55e', fontStyle: 'bold' }).setOrigin(0.5);
+                }
+            }
+
+            setupInput() {
+                this.input.on('pointermove', (pointer) => {
+                    const scope = document.getElementById('scope');
+                    scope.style.background = `radial-gradient(circle at ${pointer.x}px ${pointer.y}px, transparent 150px, rgba(0,0,0,0.98) 152px)`;
+                });
+            }
+        }
+
+        const config = {
+            type: Phaser.AUTO, width: 800, height: 600, backgroundColor: '#000',
+            scene: [SniperGame], scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }
+        };
+        const game = new Phaser.Game(config);
+    </script>
+</body>
+</html>
