@@ -3,211 +3,182 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Phantom Sniper: Global Offensive</title>
+    <title>Phantom Sniper: Global Ops</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; cursor: none; font-family: 'Courier New', monospace; touch-action: none; }
-        #scope-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
-            background: radial-gradient(circle at center, transparent 150px, rgba(0,0,0,0.95) 152px);
-            z-index: 10;
-        }
-        #scope-overlay::before, #scope-overlay::after {
-            content: ''; position: absolute; background: rgba(255, 0, 0, 0.4);
-        }
-        #scope-overlay::before { top: 50%; left: 0; width: 100%; height: 1px; }
-        #scope-overlay::after { left: 50%; top: 0; height: 100%; width: 1px; }
-        
-        #hud { 
-            position: absolute; bottom: 20px; left: 20px; right: 20px; color: white; 
-            font-size: 1.2rem; font-weight: bold; text-shadow: 1px 1px 0 #000; z-index: 11; 
-            display: flex; justify-content: space-between; pointer-events: none;
-        }
-        .bar-container { width: 120px; height: 8px; background: #222; border: 1px solid #555; display: inline-block; vertical-align: middle; margin-left: 10px; }
+        #hud { position: absolute; bottom: 20px; left: 20px; right: 20px; color: white; font-size: 1rem; font-weight: bold; text-shadow: 1px 1px 0 #000; z-index: 11; display: flex; justify-content: space-between; pointer-events: none; }
+        .bar-container { width: 100px; height: 6px; background: #222; border: 1px solid #555; display: inline-block; vertical-align: middle; margin-left: 8px; }
         .hp-bar { width: 100%; height: 100%; background: #22c55e; transition: width 0.2s; }
-        
-        #controls {
-            position: absolute; bottom: 80px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 12;
-        }
-        .ctrl-btn {
-            width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.1);
-            border: 2px solid rgba(255,255,255,0.3); color: white; font-weight: bold; font-size: 0.8rem;
-            display: flex; align-items: center; justify-content: center; cursor: pointer;
-        }
-        .ctrl-btn:active { background: rgba(255,255,255,0.3); }
-
-        #reload-msg {
+        #wind-indicator { position: absolute; top: 20px; right: 20px; color: #38bdf8; font-weight: bold; z-index: 11; }
+        #upgrade-menu {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            color: #fbbf24; font-size: 1.5rem; font-weight: 900; display: none;
-            text-transform: uppercase; letter-spacing: 3px; text-shadow: 0 0 10px #000;
+            background: rgba(15, 23, 42, 0.95); padding: 20px; border: 1px solid #38bdf8;
+            display: none; flex-direction: column; gap: 10px; z-index: 20; text-align: center;
         }
-        #game-over {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9);
-            display: none; flex-direction: column; align-items: center; justify-content: center;
-            color: white; z-index: 20;
-        }
+        .upg-btn { background: #1e293b; color: white; border: 1px solid #475569; padding: 10px; cursor: pointer; font-weight: bold; }
+        .upg-btn:hover { background: #334155; color: #38bdf8; }
+        .upg-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        #game-over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 20; }
         button { padding: 12px 24px; font-size: 1rem; background: #22c55e; border: none; color: white; cursor: pointer; font-weight: bold; margin-top: 15px; }
     </style>
 </head>
 <body>
-    <div id="scope-overlay"></div>
+    <div id="wind-indicator">WIND: <span id="wind-val">0</span> MPH ➡️</div>
     <div id="hud">
         <div>HP <div class="bar-container"><div class="hp-bar" id="hp-bar"></div></div></div>
         <div style="text-align: right">AMMO <span id="ammo" style="color:#fbbf24">10</span><br>SCORE <span id="score">0</span></div>
     </div>
-    <div id="controls">
-        <div class="ctrl-btn" onclick="game.scene.scenes[0].reload()">R</div>
+    <div id="upgrade-menu">
+        <h2 style="color:#38bdf8; margin-bottom:10px;">MISSION COMPLETE</h2>
+        <p style="color:#94a3b8; font-size:0.8rem; margin-bottom:15px;">Select an upgrade:</p>
+        <button class="upg-btn" onclick="game.scene.scenes[0].buyUpgrade('ammo')">EXTENDED MAG (+5 Ammo)</button>
+        <button class="upg-btn" onclick="game.scene.scenes[0].buyUpgrade('hp')">TACTICAL VEST (+25 HP)</button>
+        <button class="upg-btn" onclick="game.scene.scenes[0].buyUpgrade('slow')">TARGET PAINT (Slower Enemies)</button>
     </div>
-    <div id="reload-msg">RELOADING</div>
     <div id="game-over">
-        <h1 style="font-size: 3rem; color: #ef4444;">MISSION FAILED</h1>
-        <p>Targets Neutralized: <span id="final-score">0</span></p>
+        <h1 style="font-size: 3rem; color: #ef4444;">K.I.A.</h1>
+        <p>Final Score: <span id="final-score">0</span></p>
         <button onclick="location.reload()">RE-DEPLOY</button>
     </div>
 
     <script>
-        class SniperGlobal extends Phaser.Scene {
-            constructor() { super('SniperGlobal'); }
+        class SniperOps extends Phaser.Scene {
+            constructor() { super('SniperOps'); }
 
             create() {
-                this.hp = 100;
-                this.ammo = 10;
-                this.score = 0;
-                this.isReloading = false;
-                this.peaking = false;
+                this.hp = 100; this.maxHp = 100;
+                this.ammo = 10; this.maxAmmo = 10;
+                this.score = 0; this.kills = 0;
+                this.wave = 1; this.wind = (Math.random() * 10 - 5).toFixed(1);
                 
-                // Mobile Input
-                this.input.on('pointerdown', (p) => this.handleInput(p));
-                this.input.on('pointermove', (p) => this.updateScope(p));
-
-                this.createEnvironment();
-                this.spawnSystem();
+                this.scope = this.add.container(0, 0).setDepth(100);
+                this.scope.add(this.add.rectangle(0, 0, 320, 2, 0xff0000, 0.8));
+                this.scope.add(this.add.rectangle(0, 0, 2, 320, 0xff0000, 0.8));
                 
-                document.getElementById('scope-overlay').style.display = 'block';
+                this.createMap();
+                this.startWave();
+                
+                this.input.on('pointermove', (p) => { this.scope.x = p.x; this.scope.y = p.y; });
+                this.input.on('pointerdown', (p) => this.shoot(p));
+                
+                document.getElementById('wind-val').innerText = Math.abs(this.wind);
             }
 
-            createEnvironment() {
-                // Sky
-                this.add.rectangle(400, 300, 800, 600, 0x020617);
-                // Distant City
+            createMap() {
+                const isNight = Math.random() > 0.5;
+                this.add.rectangle(400, 300, 800, 600, isNight ? 0x020617 : 0x7dd3fc);
+                const color = isNight ? 0x1e293b : 0xf1f5f9;
                 for(let i=0; i<12; i++) {
                     const h = 80 + Math.random() * 120;
-                    this.add.rectangle(i * 70, 600 - h/2, 60, h, 0x1e293b);
+                    this.add.rectangle(i * 70, 600 - h/2, 60, h, color);
                 }
-                // Rooftop Ledge
-                this.add.rectangle(400, 580, 800, 40, 0x334155);
             }
 
-            spawnSystem() {
-                // Spawn a target every 2.5 seconds
-                this.time.addEvent({ 
-                    delay: 2500, 
-                    callback: () => {
-                        if(!this.peaking) this.peekTarget();
-                    }, 
-                    loop: true 
+            startWave() {
+                this.enemiesToKill = 3 + this.wave;
+                this.spawnTimer = this.time.addEvent({ 
+                    delay: 2000, callback: () => this.peekTarget(), loop: true 
                 });
             }
 
             peekTarget() {
-                this.peaking = true;
+                if(this.enemiesToKill <= 0) return;
                 const x = 100 + Math.random() * 600;
                 const y = 280 + Math.random() * 150;
                 
-                // Enemy Container
-                this.enemy = this.add.container(x, -50); // Start hidden below
-                const body = this.add.rectangle(0, 15, 25, 45, 0x1e3a8a); // Blue uniform (CS style)
-                const head = this.add.circle(0, -15, 10, 0xffd700); // Yellow skin
-                const vest = this.add.rectangle(0, 15, 20, 30, 0x333);
-                this.enemy.add([body, vest, head]);
+                this.enemy = this.add.container(x, -50);
+                const type = Math.random();
+                let points = 100;
+                
+                if(type > 0.8) { // Hostage
+                    this.enemy.add([this.add.rectangle(0,15,25,45,0xffffff), this.add.circle(0,-15,10,0xffd700)]);
+                    this.enemy.setData('isHostage', true); points = -500;
+                } else { // Terrorist
+                    this.enemy.add([this.add.rectangle(0,15,25,45,0x1e3a8a), this.add.circle(0,-15,10,0xffd700)]);
+                    this.enemy.setData('isHostage', false);
+                }
 
-                // Peek Animation
+                const speed = Math.max(400, 1500 - (this.wave * 100));
                 this.tweens.add({
-                    targets: this.enemy, y: y, duration: 400, ease: 'Power2',
+                    targets: this.enemy, y: y, duration: speed, ease: 'Power2',
                     onComplete: () => {
-                        // Stay for 1.5s then hide
-                        this.time.delayedCall(1500, () => {
-                            this.tweens.add({
-                                targets: this.enemy, y: -50, duration: 300,
-                                onComplete: () => { 
-                                    this.enemy.destroy(); 
-                                    this.peaking = false; 
-                                    this.takeDamage(5); // Penalty for missing the shot
-                                }
-                            });
+                        this.time.delayedCall(1200, () => {
+                            this.tweens.add({ targets: this.enemy, y: -50, duration: 300, onComplete: () => { 
+                                this.enemy.destroy(); 
+                                if(this.enemy.active) this.takeDamage(10);
+                            }});
                         });
                     }
                 });
-
-                // Hit Area
+                
                 this.enemy.setInteractive({ hitArea: new Phaser.Geom.Rectangle(-20, -30, 40, 60), hitAreaCallback: Phaser.Geom.Rectangle.Contains });
-                this.enemy.on('pointerdown', () => this.hitEnemy());
+                this.enemy.on('pointerdown', () => this.hitEnemy(points));
             }
 
-            handleInput(p) {
-                if(this.isReloading) return;
-                if(this.ammo <= 0) return this.reload();
-
-                this.ammo--;
-                this.updateUI();
+            shoot(p) {
+                if(this.ammo <= 0) return;
+                this.ammo--; this.updateUI();
                 
-                // Visual Flash
-                const flash = this.add.circle(p.x, p.y, 20, 0xffffff, 0.5);
-                this.tweens.add({ targets: flash, scale: 2, alpha: 0, duration: 100, onComplete: () => flash.destroy() });
+                // Wind Effect on Visual Bullet
+                const windOffset = parseFloat(this.wind) * 2;
+                const hole = this.add.circle(p.x + windOffset, p.y, 3, 0x000);
+                this.tweens.add({ targets: hole, alpha: 0, duration: 2000 });
             }
 
-            hitEnemy() {
+            hitEnemy(points) {
                 if(!this.enemy) return;
-                this.score++;
-                this.updateUI();
+                this.enemiesToKill--;
                 
-                // Death effect
-                this.tweens.add({ targets: this.enemy, alpha: 0, angle: 90, duration: 200, onComplete: () => {
-                    this.enemy.destroy();
-                    this.peaking = false;
-                }});
+                if(this.enemy.getData('isHostage')) {
+                    this.takeDamage(100); // Instant fail
+                } else {
+                    this.score += points; this.kills++;
+                    this.tweens.add({ targets: this.enemy, alpha: 0, angle: 90, duration: 200, onComplete: () => {
+                        this.enemy.destroy();
+                        if(this.enemiesToKill <= 0) this.showUpgrades();
+                    }});
+                }
+                this.updateUI();
+            }
+
+            showUpgrades() {
+                this.spawnTimer.remove();
+                this.wave++;
+                document.getElementById('upgrade-menu').style.display = 'flex';
+            }
+
+            buyUpgrade(type) {
+                if(type === 'ammo') this.maxAmmo += 5;
+                if(type === 'hp') { this.maxHp += 25; this.hp = this.maxHp; }
+                if(type === 'slow') this.time.timeScale = 0.8;
+                
+                this.ammo = this.maxAmmo;
+                document.getElementById('upgrade-menu').style.display = 'none';
+                this.startWave();
+                this.updateUI();
             }
 
             takeDamage(amount) {
-                this.hp -= amount;
-                this.cameras.main.shake(100, 0.01);
+                this.hp -= amount; this.cameras.main.shake(100, 0.02);
                 if(this.hp <= 0) {
-                    this.hp = 0;
-                    this.scene.pause();
+                    this.hp = 0; this.scene.pause();
                     document.getElementById('game-over').style.display = 'flex';
                     document.getElementById('final-score').innerText = this.score;
                 }
                 this.updateUI();
             }
 
-            reload() {
-                if(this.isReloading || this.ammo === 10) return;
-                this.isReloading = true;
-                document.getElementById('reload-msg').style.display = 'block';
-                
-                this.time.delayedCall(1200, () => {
-                    this.ammo = 10;
-                    this.isReloading = false;
-                    document.getElementById('reload-msg').style.display = 'none';
-                    this.updateUI();
-                });
-            }
-
-            updateScope(p) {
-                const s = document.getElementById('scope-overlay');
-                s.style.background = `radial-gradient(circle at ${p.x}px ${p.y}px, transparent 140px, rgba(0,0,0,0.98) 142px)`;
-            }
-
             updateUI() {
-                document.getElementById('hp-bar').style.width = this.hp + '%';
-                document.getElementById('ammo').innerText = this.ammo;
+                document.getElementById('hp-bar').style.width = (this.hp / this.maxHp * 100) + '%';
+                document.getElementById('ammo').innerText = this.ammo + '/' + this.maxAmmo;
                 document.getElementById('score').innerText = this.score;
             }
         }
 
         const game = new Phaser.Game({
             type: Phaser.AUTO, width: 800, height: 600, 
-            scene: [SniperGlobal], scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }
+            scene: [SniperOps], scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }
         });
     </script>
 </body>
