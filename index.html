@@ -2,197 +2,200 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Phantom Sniper: CS Edition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Phantom Sniper: Global Offensive</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; cursor: none; font-family: 'Courier New', monospace; }
+        body { margin: 0; background: #000; overflow: hidden; cursor: none; font-family: 'Courier New', monospace; touch-action: none; }
         #scope-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
-            background: radial-gradient(circle at center, transparent 180px, rgba(0,0,0,0.9) 182px);
-            z-index: 10; display: none;
+            background: radial-gradient(circle at center, transparent 150px, rgba(0,0,0,0.95) 152px);
+            z-index: 10;
         }
         #scope-overlay::before, #scope-overlay::after {
-            content: ''; position: absolute; background: rgba(0, 255, 0, 0.3);
+            content: ''; position: absolute; background: rgba(255, 0, 0, 0.4);
         }
         #scope-overlay::before { top: 50%; left: 0; width: 100%; height: 1px; }
         #scope-overlay::after { left: 50%; top: 0; height: 100%; width: 1px; }
         
-        #hud { position: absolute; bottom: 20px; left: 20px; color: white; font-size: 1.5rem; font-weight: bold; text-shadow: 2px 2px 0 #000; z-index: 11; display: flex; gap: 40px; }
-        .hud-item { display: flex; align-items: center; gap: 10px; }
-        .bar-container { width: 150px; height: 10px; background: #333; border: 1px solid #555; }
-        .hp-bar { width: 100%; height: 100%; background: #22c55e; transition: width 0.2s, background 0.2s; }
+        #hud { 
+            position: absolute; bottom: 20px; left: 20px; right: 20px; color: white; 
+            font-size: 1.2rem; font-weight: bold; text-shadow: 1px 1px 0 #000; z-index: 11; 
+            display: flex; justify-content: space-between; pointer-events: none;
+        }
+        .bar-container { width: 120px; height: 8px; background: #222; border: 1px solid #555; display: inline-block; vertical-align: middle; margin-left: 10px; }
+        .hp-bar { width: 100%; height: 100%; background: #22c55e; transition: width 0.2s; }
         
+        #controls {
+            position: absolute; bottom: 80px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 12;
+        }
+        .ctrl-btn {
+            width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.3); color: white; font-weight: bold; font-size: 0.8rem;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+        }
+        .ctrl-btn:active { background: rgba(255,255,255,0.3); }
+
         #reload-msg {
-            position: absolute; top: 60%; left: 50%; transform: translate(-50%, -50%);
-            color: #ef4444; font-size: 2rem; font-weight: 900; display: none;
-            text-transform: uppercase; letter-spacing: 5px; text-shadow: 0 0 10px #ef4444;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: #fbbf24; font-size: 1.5rem; font-weight: 900; display: none;
+            text-transform: uppercase; letter-spacing: 3px; text-shadow: 0 0 10px #000;
         }
         #game-over {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8);
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9);
             display: none; flex-direction: column; align-items: center; justify-content: center;
             color: white; z-index: 20;
         }
-        button { padding: 15px 30px; font-size: 1.2rem; background: #22c55e; border: none; color: white; cursor: pointer; font-weight: bold; margin-top: 20px; }
+        button { padding: 12px 24px; font-size: 1rem; background: #22c55e; border: none; color: white; cursor: pointer; font-weight: bold; margin-top: 15px; }
     </style>
 </head>
 <body>
     <div id="scope-overlay"></div>
     <div id="hud">
-        <div class="hud-item">HP <div class="bar-container"><div class="hp-bar" id="hp-bar"></div></div></div>
-        <div class="hud-item">AMMO <span id="ammo">10</span>/<span id="total-ammo">∞</span></div>
-        <div class="hud-item">SCORE <span id="score">0</span></div>
+        <div>HP <div class="bar-container"><div class="hp-bar" id="hp-bar"></div></div></div>
+        <div style="text-align: right">AMMO <span id="ammo" style="color:#fbbf24">10</span><br>SCORE <span id="score">0</span></div>
     </div>
-    <div id="reload-msg">RELOADING...</div>
+    <div id="controls">
+        <div class="ctrl-btn" onclick="game.scene.scenes[0].reload()">R</div>
+    </div>
+    <div id="reload-msg">RELOADING</div>
     <div id="game-over">
-        <h1 style="font-size: 4rem; color: #ef4444;">K.I.A.</h1>
-        <p>Final Score: <span id="final-score">0</span></p>
-        <button onclick="location.reload()">REDEPLOY</button>
+        <h1 style="font-size: 3rem; color: #ef4444;">MISSION FAILED</h1>
+        <p>Targets Neutralized: <span id="final-score">0</span></p>
+        <button onclick="location.reload()">RE-DEPLOY</button>
     </div>
 
     <script>
-        const sounds = {
-            shoot: new Audio('https://assets.mixkit.co/active_storage/sfx/2967/2967.wav'),
-            empty: new Audio('https://assets.mixkit.co/active_storage/sfx/2973/2973.wav'),
-            reload: new Audio('https://assets.mixkit.co/active_storage/sfx/2971/2971.wav'),
-            hit: new Audio('https://assets.mixkit.co/active_storage/sfx/2974/2974.wav')
-        };
-
-        class SniperCS extends Phaser.Scene {
-            constructor() { super('SniperCS'); }
+        class SniperGlobal extends Phaser.Scene {
+            constructor() { super('SniperGlobal'); }
 
             create() {
                 this.hp = 100;
                 this.ammo = 10;
                 this.score = 0;
                 this.isReloading = false;
-                this.targets = [];
-                this.bullets = [];
+                this.peaking = false;
                 
-                this.add.rectangle(400, 300, 800, 600, 0x0f172a); // DarkSky
+                // Mobile Input
+                this.input.on('pointerdown', (p) => this.handleInput(p));
+                this.input.on('pointermove', (p) => this.updateScope(p));
+
                 this.createEnvironment();
-                
-                this.input.on('pointerdown', () => this.shoot());
-                this.time.addEvent({ delay: 1500, callback: this.spawnEnemy, callbackScope: this, loop: true });
+                this.spawnSystem();
                 
                 document.getElementById('scope-overlay').style.display = 'block';
             }
 
             createEnvironment() {
-                // Rooftop foreground
-                this.add.rectangle(400, 550, 850, 100, 0x1e293b);
-                // Distant buildings
-                for(let i=0; i<10; i++) {
-                    const h = 100 + Math.random() * 150;
-                    this.add.rectangle(i * 90, 600 - h/2, 70, h, 0x334155);
+                // Sky
+                this.add.rectangle(400, 300, 800, 600, 0x020617);
+                // Distant City
+                for(let i=0; i<12; i++) {
+                    const h = 80 + Math.random() * 120;
+                    this.add.rectangle(i * 70, 600 - h/2, 60, h, 0x1e293b);
                 }
+                // Rooftop Ledge
+                this.add.rectangle(400, 580, 800, 40, 0x334155);
             }
 
-            spawnEnemy() {
-                if(this.targets.length > 6) return;
-                const x = 100 + Math.random() * 600;
-                const y = 250 + Math.random() * 150;
-                
-                const enemy = this.add.container(x, y);
-                const body = this.add.rectangle(0, 15, 30, 50, 0xef4444);
-                const head = this.add.circle(0, -20, 12, 0xef4444);
-                const gun = this.add.rectangle(15, 10, 20, 5, 0x000);
-                enemy.add([body, head, gun]);
-                
-                // Enemy Logic
-                enemy.setData({ hp: 1, active: true });
-                
-                // Movement
-                this.tweens.add({
-                    targets: enemy, x: x + (Math.random() > 0.5 ? 80 : -80), 
-                    duration: 2000 + Math.random() * 2000, yoyo: true, repeat: -1
-                });
-
-                // Enemy Shooting Logic
-                this.time.addEvent({
-                    delay: 2000 + Math.random() * 1000,
+            spawnSystem() {
+                // Spawn a target every 2.5 seconds
+                this.time.addEvent({ 
+                    delay: 2500, 
                     callback: () => {
-                        if(!enemy.getData('active')) return;
-                        // Muzzle flash from enemy
-                        this.add.circle(x, y, 5, 0xffff00, 0.8).setScale(3);
-                        this.takeDamage(10 + Math.floor(Math.random() * 10));
-                    },
-                    loop: true
+                        if(!this.peaking) this.peekTarget();
+                    }, 
+                    loop: true 
                 });
-
-                enemy.setInteractive({ hitArea: new Phaser.Geom.Rectangle(-20, -30, 40, 60), hitAreaCallback: Phaser.Geom.Rectangle.Contains });
-                this.targets.push(enemy);
             }
 
-            shoot() {
-                if(this.isReloading) return;
+            peekTarget() {
+                this.peaking = true;
+                const x = 100 + Math.random() * 600;
+                const y = 280 + Math.random() * 150;
                 
-                if(this.ammo <= 0) {
-                    sounds.empty.play();
-                    return this.reload();
-                }
+                // Enemy Container
+                this.enemy = this.add.container(x, -50); // Start hidden below
+                const body = this.add.rectangle(0, 15, 25, 45, 0x1e3a8a); // Blue uniform (CS style)
+                const head = this.add.circle(0, -15, 10, 0xffd700); // Yellow skin
+                const vest = this.add.rectangle(0, 15, 20, 30, 0x333);
+                this.enemy.add([body, vest, head]);
 
-                sounds.shoot.currentTime = 0;
-                sounds.shoot.play();
-                this.ammo--;
-                this.updateUI();
-
-                // Recoil
-                this.tweens.add({ targets: this.cameras.main, scrollY: 20, duration: 50, yoyo: true });
-
-                // Hit Scan
-                const pointer = this.input.activePointer;
-                let hit = false;
-                this.targets.forEach(target => {
-                    if(target.getData('active') && 
-                       Phaser.Geom.Rectangle.Contains(target.getBounds(), pointer.x, pointer.y)) {
-                        this.killTarget(target);
-                        hit = true;
+                // Peek Animation
+                this.tweens.add({
+                    targets: this.enemy, y: y, duration: 400, ease: 'Power2',
+                    onComplete: () => {
+                        // Stay for 1.5s then hide
+                        this.time.delayedCall(1500, () => {
+                            this.tweens.add({
+                                targets: this.enemy, y: -50, duration: 300,
+                                onComplete: () => { 
+                                    this.enemy.destroy(); 
+                                    this.peaking = false; 
+                                    this.takeDamage(5); // Penalty for missing the shot
+                                }
+                            });
+                        });
                     }
                 });
 
-                // Bullet Hole (Visual)
-                const hole = this.add.circle(pointer.x, pointer.y, 3, 0x000);
-                this.bullets.push(hole);
-                if(this.bullets.length > 5) this.bullets.shift().destroy();
+                // Hit Area
+                this.enemy.setInteractive({ hitArea: new Phaser.Geom.Rectangle(-20, -30, 40, 60), hitAreaCallback: Phaser.Geom.Rectangle.Contains });
+                this.enemy.on('pointerdown', () => this.hitEnemy());
             }
 
-            killTarget(target) {
-                target.setData('active', false);
-                target.setTint(0x000000);
-                this.tweens.add({ targets: target, alpha: 0, y: target.y + 50, duration: 300, onComplete: () => target.destroy() });
-                this.score += 100;
+            handleInput(p) {
+                if(this.isReloading) return;
+                if(this.ammo <= 0) return this.reload();
+
+                this.ammo--;
                 this.updateUI();
+                
+                // Visual Flash
+                const flash = this.add.circle(p.x, p.y, 20, 0xffffff, 0.5);
+                this.tweens.add({ targets: flash, scale: 2, alpha: 0, duration: 100, onComplete: () => flash.destroy() });
+            }
+
+            hitEnemy() {
+                if(!this.enemy) return;
+                this.score++;
+                this.updateUI();
+                
+                // Death effect
+                this.tweens.add({ targets: this.enemy, alpha: 0, angle: 90, duration: 200, onComplete: () => {
+                    this.enemy.destroy();
+                    this.peaking = false;
+                }});
             }
 
             takeDamage(amount) {
                 this.hp -= amount;
-                this.cameras.main.shake(100, 0.02);
-                document.getElementById('hp-bar').style.background = '#ef4444';
-                setTimeout(() => document.getElementById('hp-bar').style.background = '#22c55e', 100);
-                
+                this.cameras.main.shake(100, 0.01);
                 if(this.hp <= 0) {
                     this.hp = 0;
-                    sounds.hit.play();
+                    this.scene.pause();
                     document.getElementById('game-over').style.display = 'flex';
                     document.getElementById('final-score').innerText = this.score;
-                    this.scene.pause();
                 }
                 this.updateUI();
             }
 
             reload() {
-                if(this.isReloading) return;
+                if(this.isReloading || this.ammo === 10) return;
                 this.isReloading = true;
-                sounds.reload.play();
                 document.getElementById('reload-msg').style.display = 'block';
                 
-                this.time.delayedCall(1500, () => {
+                this.time.delayedCall(1200, () => {
                     this.ammo = 10;
                     this.isReloading = false;
                     document.getElementById('reload-msg').style.display = 'none';
                     this.updateUI();
                 });
+            }
+
+            updateScope(p) {
+                const s = document.getElementById('scope-overlay');
+                s.style.background = `radial-gradient(circle at ${p.x}px ${p.y}px, transparent 140px, rgba(0,0,0,0.98) 142px)`;
             }
 
             updateUI() {
@@ -202,16 +205,9 @@
             }
         }
 
-        const config = {
+        const game = new Phaser.Game({
             type: Phaser.AUTO, width: 800, height: 600, 
-            scene: [SniperCS], scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-            input: { activePointers: 1 }
-        };
-        const game = new Phaser.Game(config);
-        
-        // R key for reload
-        document.addEventListener('keydown', (e) => {
-            if(e.key.toLowerCase() === 'r') game.scene.scenes[0].reload();
+            scene: [SniperGlobal], scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }
         });
     </script>
 </body>
